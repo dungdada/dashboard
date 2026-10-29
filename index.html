@@ -5,43 +5,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>호흡기 진료비 모니터링</title>
 <style>
-  :root { --bg:#f6f7f9; --fg:#1a1a1a; --muted:#6b7280; --card:#fff; --border:#e5e7eb; --accent:#2563eb; --accent2:#9ca3af; --soft:#bfd3fb; --warn:#d97706; --shade:rgba(37,99,235,.08); }
-  :root[data-theme="dark"] { --bg:#111214; --fg:#ececec; --muted:#9ca3af; --card:#1a1c1f; --border:#2a2d31; --accent:#60a5fa; --accent2:#6b7280; --soft:#2c4a7a; --warn:#f59e0b; --shade:rgba(96,165,250,.12); }
+  :root { --bg:#f6f7f9; --fg:#1a1a1a; --muted:#6b7280; --card:#fff; --border:#e5e5e5; --accent:#2563eb; --accent2:#9ca3af; --soft:#bfd3fb; --warn:#b45309; --shade:rgba(37,99,235,.08); }
+  :root[data-theme="dark"] { --bg:#111; --fg:#f2f2f2; --muted:#b4b4b4; --card:#161616; --border:#2e2e2e; --accent:#60a5fa; --accent2:#7a7a7a; --soft:#2c4a7a; --warn:#f59e0b; --shade:rgba(96,165,250,.14); }
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --bg:#111214; --fg:#ececec; --muted:#9ca3af; --card:#1a1c1f; --border:#2a2d31; --accent:#60a5fa; --accent2:#6b7280; --soft:#2c4a7a; --warn:#f59e0b; --shade:rgba(96,165,250,.12); }
+    :root:not([data-theme="light"]) { --bg:#111; --fg:#f2f2f2; --muted:#b4b4b4; --card:#161616; --border:#2e2e2e; --accent:#60a5fa; --accent2:#7a7a7a; --soft:#2c4a7a; --warn:#f59e0b; --shade:rgba(96,165,250,.14); }
   }
   * { box-sizing:border-box; }
-  body { margin:0; padding:20px 16px 40px; background:var(--bg); color:var(--fg); font-family:system-ui,"Noto Sans KR","Malgun Gothic",sans-serif; }
+  body { margin:0; padding:20px 16px 40px; background:var(--bg); color:var(--fg); font-family:system-ui,"Noto Sans KR","Malgun Gothic",sans-serif; font-variant-numeric:tabular-nums; }
   .wrap { max-width:1200px; margin:0 auto; }
   header { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; }
   h1 { font-size:1.5rem; margin:0; }
   header p { color:var(--muted); margin:4px 0 0; font-size:.9rem; }
   .asof { color:var(--muted); font-size:.85rem; }
-  .filters { display:flex; gap:16px; flex-wrap:wrap; margin:16px 0; padding:12px 16px; background:var(--card); border:1px solid var(--border); border-radius:8px; align-items:center; }
+  .headline { font-size:1.05rem; font-weight:600; margin:16px 0 0; line-height:1.5; }
+  .filters { display:flex; gap:16px; flex-wrap:wrap; margin:16px 0; padding:10px 16px; background:var(--card); border:1px solid var(--border); border-radius:8px; align-items:center; }
   .filters label { font-size:.85rem; color:var(--muted); display:flex; gap:6px; align-items:center; }
-  select { font:inherit; padding:4px 8px; background:var(--bg); color:var(--fg); border:1px solid var(--border); border-radius:6px; }
+  select { font:inherit; min-height:34px; padding:4px 8px; background:var(--bg); color:var(--fg); border:1px solid var(--border); border-radius:6px; }
+  select:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
   .grid { display:grid; gap:16px; }
-  .kpis { grid-template-columns:repeat(4,1fr); }
+  .kpis { grid-template-columns:1.4fr 1.4fr 1fr 1fr; gap:1px; background:var(--border); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
   .charts { grid-template-columns:repeat(2,1fr); margin-top:16px; }
   .card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:16px; min-width:0; }
   .card h3 { margin:0 0 12px; font-size:.95rem; font-weight:600; }
+  .kpi { background:var(--card); padding:16px 20px; min-width:0; }
   .kpi .label { color:var(--muted); font-size:.82rem; }
-  .kpi .value { font-size:1.9rem; font-weight:700; margin:4px 0; font-variant-numeric:tabular-nums; }
-  .kpi .sub { color:var(--muted); font-size:.8rem; }
-  .row { display:grid; grid-template-columns:96px 1fr 120px; gap:8px; align-items:center; margin:8px 0; font-size:.85rem; }
-  .row .name { color:var(--fg); }
+  .kpi .value { font-size:1.5rem; font-weight:700; margin:4px 0; }
+  .kpi.hero .value { font-size:2.2rem; }
+  .kpi .sub { color:var(--muted); font-size:.8rem; line-height:1.4; }
+  .row { display:grid; grid-template-columns:96px 1fr 130px; gap:8px; align-items:center; margin:8px 0; font-size:.85rem; }
   .row .bars i { display:block; height:10px; border-radius:2px; background:var(--accent); }
   .row .bars i.med { height:6px; margin-top:3px; background:var(--soft); }
   .row.ma .bars i:not(.med) { background:var(--warn); }
-  .row .num { text-align:right; font-variant-numeric:tabular-nums; color:var(--muted); font-size:.8rem; line-height:1.3; }
+  .row .num { text-align:right; color:var(--muted); font-size:.8rem; line-height:1.3; }
   .row .num b { color:var(--fg); font-weight:600; }
   .legend { display:flex; gap:14px; font-size:.78rem; color:var(--muted); margin-top:8px; flex-wrap:wrap; }
-  .legend span::before { content:""; display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; background:var(--c); }
+  .legend span::before { content:""; display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; background:var(--c); border:1px solid var(--border); }
   .note { color:var(--muted); font-size:.78rem; margin-top:10px; }
   .small { color:var(--warn); }
   svg text { fill:var(--muted); font-size:11px; }
-  .empty { color:var(--muted); font-size:.9rem; padding:24px 0; }
-  @media (max-width:900px) { .kpis { grid-template-columns:repeat(2,1fr); } .charts { grid-template-columns:1fr; } }
+  svg text.lbl { fill:var(--fg); font-weight:600; }
+  .empty { color:var(--muted); font-size:.9rem; }
+  .err { padding:24px; text-align:center; color:var(--fg); }
+  .err button { margin-top:12px; font:inherit; min-height:40px; padding:6px 16px; border:1px solid var(--border); background:var(--card); color:var(--fg); border-radius:6px; cursor:pointer; }
+  @media (max-width:900px) {
+    .kpis { grid-template-columns:repeat(2,1fr); }
+    .charts { grid-template-columns:1fr; }
+    select { min-height:44px; }
+    .filters { gap:10px; }
+  }
 </style>
 </head>
 <body>
@@ -50,6 +61,7 @@
     <div><h1 id="title"></h1><p id="subtitle"></p></div>
     <div class="asof" id="asof"></div>
   </header>
+  <p class="headline" id="headline"></p>
   <section class="filters" aria-label="필터">
     <label>기간 <select id="f-period"></select></label>
     <label>연령대 <select id="f-age"></select></label>
@@ -65,17 +77,32 @@
 const MIN_N = 30;                       // 이 건수 미만이면 표본 적음 표시
 const won = v => (v == null ? '-' : Math.round(v).toLocaleString() + '원');
 const num = v => v.toLocaleString();
+const pct = v => (v >= 0 ? '+' : '-') + Math.abs(v * 100).toFixed(1) + '%';   // 변화율은 항상 부호 포함
 const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
 const median = a => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 const stat = rows => rows.length ? { n: rows.length, mean: mean(rows.map(r => r[5])), med: median(rows.map(r => r[5])) } : { n: 0, mean: null, med: null };
 const el = id => document.getElementById(id);
-const smallTag = n => n < MIN_N ? ` <span class="small" title="${MIN_N}건 미만: 해석 주의">⚠ n=${n}</span>` : '';
+const smallTag = n => n < MIN_N ? ` <span class="small">표본 적음 (n=${n})</span>` : '';
+
+// 눈금은 1·2·5 × 10^k 단위의 둥근 값, 맨 위 눈금은 최대값보다 크게
+function niceScale(max, n = 4) {
+  const raw = Math.max(max, 1) / n, p = 10 ** Math.floor(Math.log10(raw)), f = raw / p;
+  const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
+  let top = Math.ceil(max / step) * step;
+  if (top <= max) top += step;
+  return { step, top };
+}
 
 let config, data, M;
 const state = { period: 'all', age: 'all', fom: 'all' };
 
-(async () => {
-  [config, data] = await Promise.all(['config.json', 'data/data.json'].map(u => fetch(u).then(r => r.json())));
+async function init() {
+  try {
+    [config, data] = await Promise.all(['config.json', 'data/data.json'].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); })));
+  } catch (e) {
+    el('charts').outerHTML = `<div class="card err">데이터를 불러오지 못했습니다. (${e.message})<br><button onclick="location.reload()">다시 시도</button></div>`;
+    return;
+  }
   M = data.meta;
   el('title').textContent = config.title;
   el('subtitle').textContent = config.subtitle;
@@ -86,7 +113,8 @@ const state = { period: 'all', age: 'all', fom: 'all' };
   el('f-age').innerHTML = '<option value="all">전체</option>' + M.age.map((a, i) => `<option value="${i}">${a}</option>`).join('');
   for (const k of ['period', 'age', 'fom']) el('f-' + k).addEventListener('change', e => { state[k] = e.target.value; render(); });
   render();
-})();
+}
+init();
 
 function filtered({ ignorePeriod = false } = {}) {
   return data.rows.filter(r =>
@@ -115,16 +143,27 @@ function renderKpis(rows) {
   const s = stat(rows);
   const byCl = i => stat(rows.filter(r => r[1] === i));
   const byQ = i => stat(rows.filter(r => r[3] === i));
-  const clin = byCl(0), top = byCl(M.cl.length - 1);
+  const last = M.cl.length - 1;
+  const clin = byCl(0), top = byCl(last);
   const q1 = byQ(0), q5 = byQ(4);
-  const ratio = (a, b) => a.n && b.n ? (a.mean / b.mean).toFixed(2) + '배' : '-';
+  const okCl = clin.n && top.n, okQ = q1.n && q5.n;
+  const rCl = okCl ? top.mean / clin.mean : null, rQ = okQ ? q5.mean / q1.mean : null;
+  const fmt = r => r == null ? '-' : r.toFixed(2) + '배';
+
+  const smallAny = Math.min(clin.n, top.n, q1.n, q5.n) < MIN_N;
+  el('headline').textContent = okCl && okQ
+    ? `${M.cl[last]}의 건당 진료비는 ${M.cl[0]}의 ${fmt(rCl)}(${pct(rCl - 1)})이고, 소득 5분위는 1분위보다 ${pct(rQ - 1)} 입니다.${smallAny ? ' (일부 표본이 적어 참고용)' : ''}`
+    : '선택한 조건에서는 비교할 데이터가 부족합니다.';
+
   const cards = [
-    ['호흡기 명세서', num(s.n) + '건', `전체 호흡기 대비 ${(s.n / data.rows.length * 100).toFixed(0)}%`],
-    ['건당 진료비 (평균)', won(s.mean), `중앙값 ${won(s.med)}`],
-    [`${M.cl[M.cl.length - 1]} ÷ ${M.cl[0]}`, ratio(top, clin), `${M.cl[0]} ${won(clin.mean)} / ${M.cl[M.cl.length - 1]} ${won(top.mean)}${smallTag(Math.min(clin.n, top.n))}`],
-    ['5분위 ÷ 1분위 (건당)', ratio(q5, q1), `1분위 ${won(q1.mean)} / 5분위 ${won(q5.mean)}${smallTag(Math.min(q1.n, q5.n))}`],
+    { hero: true, label: `${M.cl[last]} ÷ ${M.cl[0]} (건당 진료비 평균)`, value: fmt(rCl),
+      sub: okCl ? `${M.cl[0]} ${won(clin.mean)} 대비 ${pct(rCl - 1)}${smallTag(Math.min(clin.n, top.n))}` : '비교할 데이터 없음' },
+    { hero: true, label: '5분위 ÷ 1분위 (건당 진료비 평균)', value: fmt(rQ),
+      sub: okQ ? `1분위 ${won(q1.mean)} 대비 ${pct(rQ - 1)}${smallTag(Math.min(q1.n, q5.n))}` : '비교할 데이터 없음' },
+    { label: '건당 진료비 (평균)', value: won(s.mean), sub: `중앙값 ${won(s.med)}` },
+    { label: '호흡기 명세서', value: num(s.n) + '건', sub: `전체 호흡기 ${num(data.rows.length)}건 중 ${(s.n / data.rows.length * 100).toFixed(1)}%` },
   ];
-  el('kpis').innerHTML = cards.map(([l, v, sub]) => `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${sub}</div></div>`).join('');
+  el('kpis').innerHTML = cards.map(c => `<div class="kpi${c.hero ? ' hero' : ''}"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="sub">${c.sub}</div></div>`).join('');
 }
 
 function seasonal() {
@@ -135,33 +174,41 @@ function seasonal() {
     for (const r of rows) { const m = M.months[r[0]]; if (m.startsWith(y)) v[+m.slice(5) - 1]++; }
     return { y, v };
   });
-  const max = Math.max(...series.flatMap(s => s.v), 1);
-  const top = Math.ceil(max / 100) * 100;
-  const W = 560, H = 240, L = 40, R = 12, T = 12, B = 28, pw = W - L - R, ph = H - T - B;
+  const { step, top } = niceScale(Math.max(...series.flatMap(s => s.v)));
+  const W = 560, H = 240, L = 44, R = 48, T = 14, B = 28, pw = W - L - R, ph = H - T - B;
   const x = i => L + pw * (i + .5) / 12, y = v => T + ph * (1 - v / top);
-  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="월별 호흡기 청구 건수">`;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="월별 호흡기 청구 건수, 연도별 비교">`;
   M.highlight_months.forEach(m => { svg += `<rect x="${L + pw * (m - 1) / 12}" y="${T}" width="${pw / 12}" height="${ph}" fill="var(--shade)"/>`; });
-  for (let t = 0; t <= 4; t++) { const v = top * t / 4; svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${num(Math.round(v))}</text>`; }
+  for (let v = 0; v <= top + 1e-9; v += step) svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${num(v)}</text>`;
   for (let i = 0; i < 12; i++) svg += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${i + 1}월</text>`;
+  const ends = [];
   series.forEach((s, k) => {
-    const color = k === series.length - 1 ? 'var(--accent)' : 'var(--accent2)';
+    const isLast = k === series.length - 1;
+    const color = isLast ? 'var(--accent)' : 'var(--accent2)';
     svg += `<polyline fill="none" stroke="${color}" stroke-width="2.5" points="${s.v.map((v, i) => `${x(i)},${y(v)}`).join(' ')}"/>`;
     s.v.forEach((v, i) => { svg += `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${color}"><title>${s.y}년 ${i + 1}월: ${num(v)}건</title></circle>`; });
+    ends.push({ label: s.y, y: y(s.v[11]), color });
+    if (isLast) {                                    // 최근 연도의 최대 월에 주석
+      const mx = Math.max(...s.v), i = s.v.indexOf(mx);
+      svg += `<text class="lbl" x="${x(i)}" y="${y(mx) - 9}" text-anchor="middle">${i + 1}월 ${num(mx)}건</text>`;
+    }
   });
+  ends.sort((a, b) => a.y - b.y);                    // 선 끝 라벨이 겹치면 벌린다
+  for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 13) ends[i].y = ends[i - 1].y + 13;
+  ends.forEach(e => { svg += `<text class="lbl" x="${x(11) + 9}" y="${e.y + 4}" fill="${e.color}" style="fill:${e.color}">${e.label}</text>`; });
   svg += '</svg>';
-  const legend = series.map((s, k) => `<span style="--c:${k === series.length - 1 ? 'var(--accent)' : 'var(--accent2)'}">${s.y}년</span>`).join('') + '<span style="--c:var(--shade)">겨울(11~3월)</span>';
-  return svg + `<div class="legend">${legend}</div><div class="note">기간 필터와 무관하게 두 해를 겹쳐 표시합니다.</div>`;
+  return svg + `<div class="legend"><span style="--c:var(--shade)">음영 = 겨울(11~3월)</span></div><div class="note">기간 필터와 무관하게 두 해를 겹쳐 표시합니다.</div>`;
 }
 
-function bars(items, { maxOf, perCapita = false } = {}) {
-  const max = Math.max(...items.map(i => i.mean ?? i.value ?? 0), 1);
+function bars(items, { perCapita = false } = {}) {
+  const max = Math.max(...items.map(i => (perCapita ? i.value : i.mean) ?? 0), 1);
   return items.map(i => {
-    if (i.n === 0) return `<div class="row"><span class="name">${i.name}</span><span class="empty">데이터 없음</span><span></span></div>`;
+    if (i.n === 0) return `<div class="row"><span class="name">${i.name}</span><span class="empty">-</span><span class="num">데이터 없음</span></div>`;
     const w = v => (v / max * 100).toFixed(1);
     const main = perCapita ? i.value : i.mean;
     const medBar = i.med != null ? `<i class="med" style="width:${w(i.med)}%"></i>` : '';
     const right = perCapita
-      ? `<b>${i.value.toFixed(2)}건/인</b><br>${num(i.n)}건 / ${num(i.pop)}명${i.pop < MIN_N ? ' <span class="small">⚠</span>' : ''}`
+      ? `<b>${i.value.toFixed(2)}건/인</b><br>${num(i.n)}건 / ${num(i.pop)}명${i.pop < MIN_N ? ' <span class="small">표본 적음</span>' : ''}`
       : `<b>${won(i.mean)}</b><br>중앙 ${won(i.med)}${smallTag(i.n)}`;
     return `<div class="row${i.ma ? ' ma' : ''}"><span class="name">${i.name}</span><span class="bars"><i style="width:${w(main)}%" title="${i.name}"></i>${medBar}</span><span class="num">${right}</span></div>`;
   }).join('');
