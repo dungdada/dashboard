@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>호흡기 진료비 모니터링</title>
+<style>
+  :root { --bg:#f6f7f9; --fg:#1a1a1a; --muted:#6b7280; --card:#fff; --border:#e5e7eb; --accent:#2563eb; --accent2:#9ca3af; --soft:#bfd3fb; --warn:#d97706; --shade:rgba(37,99,235,.08); }
+  :root[data-theme="dark"] { --bg:#111214; --fg:#ececec; --muted:#9ca3af; --card:#1a1c1f; --border:#2a2d31; --accent:#60a5fa; --accent2:#6b7280; --soft:#2c4a7a; --warn:#f59e0b; --shade:rgba(96,165,250,.12); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg:#111214; --fg:#ececec; --muted:#9ca3af; --card:#1a1c1f; --border:#2a2d31; --accent:#60a5fa; --accent2:#6b7280; --soft:#2c4a7a; --warn:#f59e0b; --shade:rgba(96,165,250,.12); }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:20px 16px 40px; background:var(--bg); color:var(--fg); font-family:system-ui,"Noto Sans KR","Malgun Gothic",sans-serif; }
+  .wrap { max-width:1200px; margin:0 auto; }
+  header { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; }
+  h1 { font-size:1.5rem; margin:0; }
+  header p { color:var(--muted); margin:4px 0 0; font-size:.9rem; }
+  .asof { color:var(--muted); font-size:.85rem; }
+  .filters { display:flex; gap:16px; flex-wrap:wrap; margin:16px 0; padding:12px 16px; background:var(--card); border:1px solid var(--border); border-radius:8px; align-items:center; }
+  .filters label { font-size:.85rem; color:var(--muted); display:flex; gap:6px; align-items:center; }
+  select { font:inherit; padding:4px 8px; background:var(--bg); color:var(--fg); border:1px solid var(--border); border-radius:6px; }
+  .grid { display:grid; gap:16px; }
+  .kpis { grid-template-columns:repeat(4,1fr); }
+  .charts { grid-template-columns:repeat(2,1fr); margin-top:16px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:16px; min-width:0; }
+  .card h3 { margin:0 0 12px; font-size:.95rem; font-weight:600; }
+  .kpi .label { color:var(--muted); font-size:.82rem; }
+  .kpi .value { font-size:1.9rem; font-weight:700; margin:4px 0; font-variant-numeric:tabular-nums; }
+  .kpi .sub { color:var(--muted); font-size:.8rem; }
+  .row { display:grid; grid-template-columns:96px 1fr 120px; gap:8px; align-items:center; margin:8px 0; font-size:.85rem; }
+  .row .name { color:var(--fg); }
+  .row .bars i { display:block; height:10px; border-radius:2px; background:var(--accent); }
+  .row .bars i.med { height:6px; margin-top:3px; background:var(--soft); }
+  .row.ma .bars i:not(.med) { background:var(--warn); }
+  .row .num { text-align:right; font-variant-numeric:tabular-nums; color:var(--muted); font-size:.8rem; line-height:1.3; }
+  .row .num b { color:var(--fg); font-weight:600; }
+  .legend { display:flex; gap:14px; font-size:.78rem; color:var(--muted); margin-top:8px; flex-wrap:wrap; }
+  .legend span::before { content:""; display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; background:var(--c); }
+  .note { color:var(--muted); font-size:.78rem; margin-top:10px; }
+  .small { color:var(--warn); }
+  svg text { fill:var(--muted); font-size:11px; }
+  .empty { color:var(--muted); font-size:.9rem; padding:24px 0; }
+  @media (max-width:900px) { .kpis { grid-template-columns:repeat(2,1fr); } .charts { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1 id="title"></h1><p id="subtitle"></p></div>
+    <div class="asof" id="asof"></div>
+  </header>
+  <section class="filters" aria-label="필터">
+    <label>기간 <select id="f-period"></select></label>
+    <label>연령대 <select id="f-age"></select></label>
+    <label>입원/외래 <select id="f-fom">
+      <option value="all">전체</option><option value="0">외래</option><option value="1">입원</option></select></label>
+    <span class="note" id="f-note"></span>
+  </section>
+  <section class="grid kpis" id="kpis"></section>
+  <main class="grid charts" id="charts"></main>
+  <p class="note" id="footnote"></p>
+</div>
+<script>
+const MIN_N = 30;                       // 이 건수 미만이면 표본 적음 표시
+const won = v => (v == null ? '-' : Math.round(v).toLocaleString() + '원');
+const num = v => v.toLocaleString();
+const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+const median = a => { const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const stat = rows => rows.length ? { n: rows.length, mean: mean(rows.map(r => r[5])), med: median(rows.map(r => r[5])) } : { n: 0, mean: null, med: null };
+const el = id => document.getElementById(id);
+const smallTag = n => n < MIN_N ? ` <span class="small" title="${MIN_N}건 미만: 해석 주의">⚠ n=${n}</span>` : '';
+
+let config, data, M;
+const state = { period: 'all', age: 'all', fom: 'all' };
+
+(async () => {
+  [config, data] = await Promise.all(['config.json', 'data/data.json'].map(u => fetch(u).then(r => r.json())));
+  M = data.meta;
+  el('title').textContent = config.title;
+  el('subtitle').textContent = config.subtitle;
+  document.title = config.title;
+  el('asof').textContent = `데이터 기준월 ${M.asof} · 전체 명세서 ${num(M.total_claims)}건 중 호흡기 ${num(data.rows.length)}건`;
+  const years = [...new Set(M.months.map(m => m.slice(0, 4)))];
+  el('f-period').innerHTML = '<option value="all">전체 기간</option>' + years.map(y => `<option value="${y}">${y}년</option>`).join('');
+  el('f-age').innerHTML = '<option value="all">전체</option>' + M.age.map((a, i) => `<option value="${i}">${a}</option>`).join('');
+  for (const k of ['period', 'age', 'fom']) el('f-' + k).addEventListener('change', e => { state[k] = e.target.value; render(); });
+  render();
+})();
+
+function filtered({ ignorePeriod = false } = {}) {
+  return data.rows.filter(r =>
+    (state.age === 'all' || r[2] === +state.age) &&
+    (state.fom === 'all' || r[4] === +state.fom) &&
+    (ignorePeriod || state.period === 'all' || M.months[r[0]].startsWith(state.period)));
+}
+
+function render() {
+  const rows = filtered();
+  el('f-note').textContent = state.age === 'all' ? '소득 비교는 연령대를 선택하면 더 정확합니다 (연령 구성 차이 제거)' : '';
+  renderKpis(rows);
+  el('charts').innerHTML = '';
+  for (const c of config.charts) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<h3>${c.title}</h3>`;
+    el('charts').append(card);
+    card.insertAdjacentHTML('beforeend', { seasonal, by_class, by_quintile, per_capita }[c.id](rows));
+  }
+  const months = state.period === 'all' ? M.months.length : M.months.filter(m => m.startsWith(state.period)).length;
+  el('footnote').textContent = `주상병 기준 호흡기(J00-J06, J20-J22). 진료비는 요양급여비용 총액 기준 건당(명세서 1건). 소득 분위는 환자의 보험료 5분위이며 값이 없는 환자는 의료급여로 분류. 1인당 건수는 선택 기간(${months}개월) 합계. 연령대는 ${config.age_ref_year}년 기준.`;
+}
+
+function renderKpis(rows) {
+  const s = stat(rows);
+  const byCl = i => stat(rows.filter(r => r[1] === i));
+  const byQ = i => stat(rows.filter(r => r[3] === i));
+  const clin = byCl(0), top = byCl(M.cl.length - 1);
+  const q1 = byQ(0), q5 = byQ(4);
+  const ratio = (a, b) => a.n && b.n ? (a.mean / b.mean).toFixed(2) + '배' : '-';
+  const cards = [
+    ['호흡기 명세서', num(s.n) + '건', `전체 호흡기 대비 ${(s.n / data.rows.length * 100).toFixed(0)}%`],
+    ['건당 진료비 (평균)', won(s.mean), `중앙값 ${won(s.med)}`],
+    [`${M.cl[M.cl.length - 1]} ÷ ${M.cl[0]}`, ratio(top, clin), `${M.cl[0]} ${won(clin.mean)} / ${M.cl[M.cl.length - 1]} ${won(top.mean)}${smallTag(Math.min(clin.n, top.n))}`],
+    ['5분위 ÷ 1분위 (건당)', ratio(q5, q1), `1분위 ${won(q1.mean)} / 5분위 ${won(q5.mean)}${smallTag(Math.min(q1.n, q5.n))}`],
+  ];
+  el('kpis').innerHTML = cards.map(([l, v, sub]) => `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${sub}</div></div>`).join('');
+}
+
+function seasonal() {
+  const rows = filtered({ ignorePeriod: true });
+  const years = [...new Set(M.months.map(m => m.slice(0, 4)))];
+  const series = years.map(y => {
+    const v = Array(12).fill(0);
+    for (const r of rows) { const m = M.months[r[0]]; if (m.startsWith(y)) v[+m.slice(5) - 1]++; }
+    return { y, v };
+  });
+  const max = Math.max(...series.flatMap(s => s.v), 1);
+  const top = Math.ceil(max / 100) * 100;
+  const W = 560, H = 240, L = 40, R = 12, T = 12, B = 28, pw = W - L - R, ph = H - T - B;
+  const x = i => L + pw * (i + .5) / 12, y = v => T + ph * (1 - v / top);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="월별 호흡기 청구 건수">`;
+  M.highlight_months.forEach(m => { svg += `<rect x="${L + pw * (m - 1) / 12}" y="${T}" width="${pw / 12}" height="${ph}" fill="var(--shade)"/>`; });
+  for (let t = 0; t <= 4; t++) { const v = top * t / 4; svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--border)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${num(Math.round(v))}</text>`; }
+  for (let i = 0; i < 12; i++) svg += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${i + 1}월</text>`;
+  series.forEach((s, k) => {
+    const color = k === series.length - 1 ? 'var(--accent)' : 'var(--accent2)';
+    svg += `<polyline fill="none" stroke="${color}" stroke-width="2.5" points="${s.v.map((v, i) => `${x(i)},${y(v)}`).join(' ')}"/>`;
+    s.v.forEach((v, i) => { svg += `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${color}"><title>${s.y}년 ${i + 1}월: ${num(v)}건</title></circle>`; });
+  });
+  svg += '</svg>';
+  const legend = series.map((s, k) => `<span style="--c:${k === series.length - 1 ? 'var(--accent)' : 'var(--accent2)'}">${s.y}년</span>`).join('') + '<span style="--c:var(--shade)">겨울(11~3월)</span>';
+  return svg + `<div class="legend">${legend}</div><div class="note">기간 필터와 무관하게 두 해를 겹쳐 표시합니다.</div>`;
+}
+
+function bars(items, { maxOf, perCapita = false } = {}) {
+  const max = Math.max(...items.map(i => i.mean ?? i.value ?? 0), 1);
+  return items.map(i => {
+    if (i.n === 0) return `<div class="row"><span class="name">${i.name}</span><span class="empty">데이터 없음</span><span></span></div>`;
+    const w = v => (v / max * 100).toFixed(1);
+    const main = perCapita ? i.value : i.mean;
+    const medBar = i.med != null ? `<i class="med" style="width:${w(i.med)}%"></i>` : '';
+    const right = perCapita
+      ? `<b>${i.value.toFixed(2)}건/인</b><br>${num(i.n)}건 / ${num(i.pop)}명${i.pop < MIN_N ? ' <span class="small">⚠</span>' : ''}`
+      : `<b>${won(i.mean)}</b><br>중앙 ${won(i.med)}${smallTag(i.n)}`;
+    return `<div class="row${i.ma ? ' ma' : ''}"><span class="name">${i.name}</span><span class="bars"><i style="width:${w(main)}%" title="${i.name}"></i>${medBar}</span><span class="num">${right}</span></div>`;
+  }).join('');
+}
+
+function by_class(rows) {
+  const items = M.cl.map((name, i) => ({ name, ...stat(rows.filter(r => r[1] === i)) }));
+  return bars(items) + '<div class="legend"><span style="--c:var(--accent)">평균</span><span style="--c:var(--soft)">중앙값</span></div>';
+}
+
+function by_quintile(rows) {
+  const items = M.quintile.map((name, i) => ({ name, ma: i === 5, ...stat(rows.filter(r => r[3] === i)) }));
+  return bars(items) + '<div class="legend"><span style="--c:var(--accent)">평균</span><span style="--c:var(--soft)">중앙값</span><span style="--c:var(--warn)">의료급여</span></div>';
+}
+
+function per_capita(rows) {
+  const items = M.quintile.map((name, qi) => {
+    const pop = Object.entries(data.patients)
+      .filter(([k]) => { const [q, a] = k.split('|').map(Number); return q === qi && (state.age === 'all' || a === +state.age); })
+      .reduce((s, [, n]) => s + n, 0);
+    const n = rows.filter(r => r[3] === qi).length;
+    return { name, ma: qi === 5, n: pop ? n : 0, pop, value: pop ? n / pop : 0 };
+  });
+  return bars(items, { perCapita: true }) + '<div class="note">분모: 해당 분위(·연령대) 환자 수. 청구가 없는 환자도 포함.</div>';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "title": "호흡기 질환 진료비 모니터링",
+  "subtitle": "소득 수준·기관 종별 진료비 차이와 계절성 (주상병 J00-J06, J20-J22)",
+  "raw": "kr_claims.xlsx",
+  "resp_ranges": [["J00", "J06"], ["J20", "J22"]],
+  "age_bands": [[0, 9], [10, 19], [20, 39], [40, 59], [60, 74], [75, 200]],
+  "age_ref_year": 2025,
+  "highlight_months": [11, 12, 1, 2, 3],
+  "cl_order": ["31", "21", "11", "01"],
+  "charts": [
+    {"id": "seasonal", "title": "월별 호흡기 청구 건수 (2024 vs 2025)"},
+    {"id": "by_class", "title": "기관 종별 건당 진료비"},
+    {"id": "by_quintile", "title": "소득 분위별 건당 진료비"},
+    {"id": "per_capita", "title": "소득 분위별 1인당 청구 건수"}
+  ]
+}

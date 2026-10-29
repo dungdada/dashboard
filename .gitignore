@@ -1,0 +1,4 @@
+# 원본 엑셀은 로컬에만 둔다 (배포에는 가공된 data/data.json 만 필요)
+data/*.xlsx
+__pycache__/
+*.pyc
